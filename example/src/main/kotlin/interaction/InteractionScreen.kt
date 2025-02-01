@@ -20,8 +20,8 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.unit.dp
 import com.github.numq.ttt.TextToText
-import generation.Message
-import generation.MessageItem
+import message.Message
+import message.MessageItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin

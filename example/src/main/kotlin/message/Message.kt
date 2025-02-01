@@ -1,4 +1,4 @@
-package generation
+package message
 
 import kotlin.time.Duration
 

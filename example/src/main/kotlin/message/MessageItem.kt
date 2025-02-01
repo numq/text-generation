@@ -1,4 +1,4 @@
-package generation
+package message
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
