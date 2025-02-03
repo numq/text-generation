@@ -19,4 +19,4 @@ target_include_directories(ttt PRIVATE include include/ggml include/llama)
 
 target_link_directories(ttt PRIVATE bin)
 
-target_link_libraries(ttt PRIVATE ggml-base ggml-cpu ggml-cuda ggml ggml-rpc llama)
+target_link_libraries(ttt PRIVATE ggml-base ggml-rpc ggml-cpu ggml-cuda ggml llama)

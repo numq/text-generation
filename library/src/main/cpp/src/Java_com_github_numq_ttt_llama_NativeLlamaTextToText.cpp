@@ -183,7 +183,7 @@ Java_com_github_numq_ttt_llama_NativeLlamaTextToText_generateNative(JNIEnv *env,
                 throw std::runtime_error("Failed to convert token to piece");
             }
 
-            result.append(token_output, token_len); // Accumulate the token in the result string
+            result.append(token_output, token_len);
 
             batch = llama_batch_get_one(&new_token_id, 1);
         }
