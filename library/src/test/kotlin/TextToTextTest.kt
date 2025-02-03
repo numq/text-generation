@@ -19,9 +19,9 @@ class TextToTextTest {
 
             TextToText.Llama.load(
                 ggmlbase = "$pathToBinaries\\ggml-base.dll",
+                ggmlrpc = "$pathToBinaries\\ggml-rpc.dll",
                 ggmlcpu = "$pathToBinaries\\ggml-cpu.dll",
                 ggmlcuda = "$pathToBinaries\\ggml-cuda.dll",
-                ggmlrpc = "$pathToBinaries\\ggml-rpc.dll",
                 ggml = "$pathToBinaries\\ggml.dll",
                 llama = "$pathToBinaries\\llama.dll",
                 libttt = "$pathToBinaries\\libttt.dll"

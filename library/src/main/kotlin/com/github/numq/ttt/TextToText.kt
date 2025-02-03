@@ -12,17 +12,17 @@ interface TextToText : AutoCloseable {
 
             fun load(
                 ggmlbase: String,
+                ggmlrpc: String,
                 ggmlcpu: String,
                 ggmlcuda: String,
-                ggmlrpc: String,
                 ggml: String,
                 llama: String,
                 libttt: String,
             ) = runCatching {
                 System.load(ggmlbase)
+                System.load(ggmlrpc)
                 System.load(ggmlcpu)
                 System.load(ggmlcuda)
-                System.load(ggmlrpc)
                 System.load(ggml)
                 System.load(llama)
                 System.load(libttt)
