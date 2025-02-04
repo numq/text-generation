@@ -8,6 +8,8 @@ interface TextToText : AutoCloseable {
 
     interface Llama : TextToText {
         companion object {
+            private const val DEFAULT_CONTEXT_SIZE = 2048
+
             private var isLoaded = false
 
             fun load(
@@ -30,11 +32,25 @@ interface TextToText : AutoCloseable {
                 isLoaded = true
             }
 
-            fun create(modelPath: String): Result<Llama> = runCatching {
+            fun create(
+                modelPath: String,
+                basePrompt: String,
+                contextSize: Int = DEFAULT_CONTEXT_SIZE,
+                batchSize: Int = DEFAULT_CONTEXT_SIZE,
+            ): Result<Llama> = runCatching {
                 check(isLoaded) { "Native binaries were not loaded" }
 
-                LlamaTextToText(nativeLlamaTextToText = NativeLlamaTextToText(modelPath = modelPath))
+                LlamaTextToText(
+                    nativeLlamaTextToText = NativeLlamaTextToText(
+                        modelPath = modelPath,
+                        contextSize = contextSize,
+                        batchSize = batchSize
+                    ),
+                    basePrompt = basePrompt
+                )
             }
         }
+
+        fun reset(): Result<Unit>
     }
 }
