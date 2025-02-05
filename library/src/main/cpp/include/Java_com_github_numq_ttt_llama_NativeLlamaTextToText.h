@@ -17,14 +17,8 @@ extern "C" {
 JNIEXPORT jlong JNICALL Java_com_github_numq_ttt_llama_NativeLlamaTextToText_initNative
         (JNIEnv *, jclass, jstring, jint, jint);
 
-JNIEXPORT jint JNICALL Java_com_github_numq_ttt_llama_NativeLlamaTextToText_calculateTokensNative
-        (JNIEnv *, jclass, jlong, jstring);
-
-JNIEXPORT jstring JNICALL Java_com_github_numq_ttt_llama_NativeLlamaTextToText_applyTemplateNative
-        (JNIEnv *, jclass, jlong, jobjectArray);
-
 JNIEXPORT jstring JNICALL Java_com_github_numq_ttt_llama_NativeLlamaTextToText_generateNative
-        (JNIEnv *, jclass, jlong, jstring, jfloat, jfloat, jfloat, jfloat, jfloat, jfloat);
+        (JNIEnv *, jclass, jlong, jobjectArray, jfloat, jfloat, jfloat, jint, jint);
 
 JNIEXPORT void JNICALL Java_com_github_numq_ttt_llama_NativeLlamaTextToText_freeNative
         (JNIEnv *, jclass, jlong);

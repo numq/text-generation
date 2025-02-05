@@ -17,6 +17,65 @@ llama_context *getPointer(jlong handle) {
     return it->second.get();
 }
 
+static std::string generate(
+        const llama_vocab *vocab,
+        llama_context *ctx,
+        llama_sampler *sampler,
+        const std::string &prompt
+) {
+    std::string response;
+
+    auto isFirst = llama_get_kv_cache_used_cells(ctx) == 0;
+
+    auto nPromptTokens = -llama_tokenize(vocab, prompt.c_str(), static_cast<int>(prompt.size()), nullptr, 0, isFirst,
+                                         true);
+    std::vector<llama_token> promptTokens(nPromptTokens);
+    if (llama_tokenize(
+            vocab,
+            prompt.c_str(),
+            static_cast<int>(prompt.size()),
+            promptTokens.data(),
+            static_cast<int>(promptTokens.size()),
+            isFirst,
+            true
+    ) < 0) {
+        throw std::runtime_error("Failed to tokenize the prompt");
+    }
+
+    llama_batch batch = llama_batch_get_one(promptTokens.data(), static_cast<int>(promptTokens.size()));
+    llama_token newTokenId;
+
+    while (true) {
+        auto nCtx = static_cast<int>(llama_n_ctx(ctx));
+        auto nCtxUsed = llama_get_kv_cache_used_cells(ctx);
+        if (nCtxUsed + batch.n_tokens > nCtx) {
+            throw std::runtime_error("Context size exceeded");
+        }
+
+        if (llama_decode(ctx, batch)) {
+            throw std::runtime_error("Failed to decode");
+        }
+
+        newTokenId = llama_sampler_sample(sampler, ctx, -1);
+
+        if (llama_vocab_is_eog(vocab, newTokenId)) {
+            break;
+        }
+
+        char buf[256];
+        auto n = llama_token_to_piece(vocab, newTokenId, buf, sizeof(buf), 0, true);
+        if (n < 0) {
+            throw std::runtime_error("Failed to convert token to piece");
+        }
+        std::string piece(buf, n);
+        response += piece;
+
+        batch = llama_batch_get_one(&newTokenId, 1);
+    }
+
+    return response;
+}
+
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
     JNIEnv *env;
 
@@ -98,59 +157,11 @@ Java_com_github_numq_ttt_llama_NativeLlamaTextToText_initNative(JNIEnv *env, jcl
     }
 }
 
-JNIEXPORT jint JNICALL
-Java_com_github_numq_ttt_llama_NativeLlamaTextToText_calculateTokensNative(JNIEnv *env, jclass thisClass, jlong handle,
-                                                                           jstring prompt) {
-    std::shared_lock<std::shared_mutex> lock(mutex);
-
-    try {
-        auto it = pointers.find(handle);
-        if (it == pointers.end()) {
-            throw std::runtime_error("Invalid handle");
-        }
-
-        const char *promptChars = env->GetStringUTFChars(prompt, nullptr);
-        if (!promptChars) {
-            throw std::runtime_error("Failed to get prompt string");
-        }
-
-        std::string promptStr(promptChars);
-        env->ReleaseStringUTFChars(prompt, promptChars);
-
-        auto vocab = llama_model_get_vocab(model.get());
-
-        if (!vocab) {
-            throw std::runtime_error("Failed to get model vocab");
-        }
-
-        auto isFirst = llama_get_kv_cache_used_cells(it->second.get()) == 0;
-
-        auto nPrompt = -llama_tokenize(
-                vocab,
-                promptStr.c_str(),
-                static_cast<int32_t>(promptStr.size()),
-                nullptr,
-                0,
-                isFirst,
-                true
-        );
-
-        if (nPrompt <= 0) {
-            throw std::runtime_error("Failed to calculate number of tokens");
-        }
-
-        return nPrompt;
-    } catch (const std::exception &e) {
-        handleException(env, e.what());
-
-        return 0;
-    }
-}
-
-
 JNIEXPORT jstring JNICALL
-Java_com_github_numq_ttt_llama_NativeLlamaTextToText_applyTemplateNative(JNIEnv *env, jclass thisClass, jlong handle,
-                                                                         jobjectArray messages) {
+Java_com_github_numq_ttt_llama_NativeLlamaTextToText_generateNative(JNIEnv *env, jclass thisClass, jlong handle,
+                                                                    jobjectArray messages, jfloat temperature,
+                                                                    jfloat topP, jfloat repetitionPenalty, jint topK,
+                                                                    jint seed) {
     std::shared_lock<std::shared_mutex> lock(mutex);
 
     try {
@@ -168,25 +179,32 @@ Java_com_github_numq_ttt_llama_NativeLlamaTextToText_applyTemplateNative(JNIEnv 
 
             jfieldID roleFieldID = env->GetFieldID(messageClass, "role", "Ljava/lang/String;");
             auto role = reinterpret_cast<jstring>(env->GetObjectField(messageObj, roleFieldID));
-            const char *roleChars = env->GetStringUTFChars(role, nullptr);
+            auto roleChars = env->GetStringUTFChars(role, nullptr);
             chatMessages[i].role = roleChars;
             env->ReleaseStringUTFChars(role, roleChars);
 
             jfieldID contentFieldID = env->GetFieldID(messageClass, "content", "Ljava/lang/String;");
             auto content = reinterpret_cast<jstring>(env->GetObjectField(messageObj, contentFieldID));
-            const char *contentChars = env->GetStringUTFChars(content, nullptr);
+            auto contentChars = env->GetStringUTFChars(content, nullptr);
             chatMessages[i].content = contentChars;
             env->ReleaseStringUTFChars(content, contentChars);
         }
+
+        auto context = it->second.get();
 
         auto vocab = llama_model_get_vocab(model.get());
         if (!vocab) {
             throw std::runtime_error("Failed to get model vocab");
         }
 
+        auto sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
+        if (!sampler) {
+            throw std::runtime_error("Failed to initialize sampler");
+        }
+
         auto tmpl = llama_model_chat_template(model.get(), nullptr);
 
-        std::vector<char> formatted(llama_n_ctx(it->second.get()));
+        std::vector<char> formatted(llama_n_ctx(context));
 
         int new_len = llama_chat_apply_template(tmpl, chatMessages.data(), chatMessages.size(), true,
                                                 formatted.data(), static_cast<int32_t>(formatted.size()));
@@ -199,83 +217,10 @@ Java_com_github_numq_ttt_llama_NativeLlamaTextToText_applyTemplateNative(JNIEnv 
 
         std::string formattedPrompt(formatted.begin(), formatted.begin() + new_len);
 
-        return env->NewStringUTF(formattedPrompt.c_str());
-    } catch (const std::exception &e) {
-        handleException(env, e.what());
-
-        return nullptr;
-    }
-}
-
-JNIEXPORT jstring JNICALL
-Java_com_github_numq_ttt_llama_NativeLlamaTextToText_generateNative(JNIEnv *env, jclass thisClass, jlong handle,
-                                                                    jstring prompt, jfloat temperature, jfloat topP,
-                                                                    jfloat minP, jfloat penaltyRepeat,
-                                                                    jfloat penaltyFreq, jfloat penaltyPresent) {
-    std::shared_lock<std::shared_mutex> lock(mutex);
-
-    try {
-        auto it = pointers.find(handle);
-        if (it == pointers.end()) {
-            throw std::runtime_error("Invalid handle");
-        }
-
-        const char *promptChars = env->GetStringUTFChars(prompt, nullptr);
-        if (!promptChars) {
-            throw std::runtime_error("Failed to get prompt string");
-        }
-
-        std::string promptStr(promptChars);
-        env->ReleaseStringUTFChars(prompt, promptChars);
-
-        auto vocab = llama_model_get_vocab(model.get());
-        if (!vocab) {
-            throw std::runtime_error("Failed to get model vocab");
-        }
-
-        auto isFirst = llama_get_kv_cache_used_cells(it->second.get()) == 0;
-
-        auto nPrompt = -llama_tokenize(
-                vocab,
-                promptStr.c_str(),
-                static_cast<int32_t>(promptStr.size()),
-                nullptr,
-                0,
-                isFirst,
-                true
-        );
-
-        if (nPrompt <= 0) {
-            throw std::runtime_error("Failed to calculate number of tokens");
-        }
-
-        std::vector<llama_token> tokens(nPrompt);
-
-        if (llama_tokenize(
-                vocab,
-                promptStr.c_str(),
-                static_cast<int32_t>(promptStr.size()),
-                tokens.data(),
-                static_cast<int32_t>(tokens.size()),
-                true,
-                true
-        ) < 0) {
-            throw std::runtime_error("Failed to tokenize prompt");
-        }
-
-        auto batch = llama_batch_get_one(tokens.data(), nPrompt);
-
-        auto samplerParams = llama_sampler_chain_default_params();
-
-        auto sampler = llama_sampler_chain_init(samplerParams);
-        if (!sampler) {
-            throw std::runtime_error("Failed to initialize sampler");
-        }
-
         try {
             llama_sampler_chain_add(
                     sampler,
-                    llama_sampler_init_greedy()
+                    seed > 0 ? llama_sampler_init_dist(seed) : llama_sampler_init_greedy()
             );
 
             llama_sampler_chain_add(
@@ -285,52 +230,28 @@ Java_com_github_numq_ttt_llama_NativeLlamaTextToText_generateNative(JNIEnv *env,
 
             llama_sampler_chain_add(
                     sampler,
-                    llama_sampler_init_top_p(topP, 0)
-            );
-
-            llama_sampler_chain_add(
-                    sampler,
-                    llama_sampler_init_min_p(minP, 0)
+                    llama_sampler_init_top_p(topP, 1)
             );
 
             llama_sampler_chain_add(
                     sampler,
                     llama_sampler_init_penalties(
                             0,
-                            penaltyRepeat,
-                            penaltyFreq,
-                            penaltyPresent
+                            repetitionPenalty,
+                            0,
+                            0
                     )
             );
 
-            std::string result;
-            llama_token new_token_id;
+            llama_sampler_chain_add(
+                    sampler,
+                    llama_sampler_init_top_k(topK)
+            );
 
-            for (int n_pos = 0; n_pos + batch.n_tokens < nPrompt + 32;) {
-                if (llama_decode(it->second.get(), batch)) {
-                    throw std::runtime_error("Failed to decode batch");
-                }
-
-                n_pos += batch.n_tokens;
-
-                new_token_id = llama_sampler_sample(sampler, it->second.get(), -1);
-                if (llama_vocab_is_eog(vocab, new_token_id)) {
-                    break;
-                }
-
-                char token_output[256];
-                int token_len = llama_token_to_piece(vocab, new_token_id, token_output, sizeof(token_output), 0, true);
-
-                if (token_len < 0) {
-                    throw std::runtime_error("Failed to convert token to piece");
-                }
-
-                result.append(token_output, token_len);
-
-                batch = llama_batch_get_one(&new_token_id, 1);
+            auto result = generate(vocab, context, sampler, formattedPrompt);
+            if (result.empty()) {
+                throw std::runtime_error("Unable to generate response");
             }
-
-            llama_sampler_free(sampler);
 
             return env->NewStringUTF(result.c_str());
         } catch (...) {
@@ -340,9 +261,9 @@ Java_com_github_numq_ttt_llama_NativeLlamaTextToText_generateNative(JNIEnv *env,
         }
     } catch (const std::exception &e) {
         handleException(env, e.what());
-
-        return nullptr;
     }
+
+    return nullptr;
 }
 
 JNIEXPORT void JNICALL
