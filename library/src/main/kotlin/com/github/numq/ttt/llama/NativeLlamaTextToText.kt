@@ -15,12 +15,10 @@ internal class NativeLlamaTextToText(
     private val cleanable = cleaner.register(this) { freeNative(nativeHandle) }
 
     private companion object {
-        const val DEFAULT_TEMPERATURE = 1f
-        const val DEFAULT_TOP_P = 1f
-        const val DEFAULT_MIN_P = 0f
-        const val DEFAULT_PENALTY_REPEAT = 1f
-        const val DEFAULT_PENALTY_FREQ = 0f
-        const val DEFAULT_PENALTY_PRESENT = 0f
+        const val DEFAULT_TEMPERATURE = .98f
+        const val DEFAULT_TOP_P = .37f
+        const val DEFAULT_REPETITION_PENALTY = 1.18f
+        const val DEFAULT_TOP_K = 100
 
         private val cleaner: Cleaner = Cleaner.create()
 
@@ -28,49 +26,36 @@ internal class NativeLlamaTextToText(
         private external fun initNative(modelPath: String, contextSize: Int, batchSize: Int): Long
 
         @JvmStatic
-        private external fun applyTemplateNative(handle: Long, messages: Array<LlamaMessage>): String
-
-        @JvmStatic
-        private external fun calculateTokensNative(handle: Long, prompt: String): Int
-
-        @JvmStatic
         private external fun generateNative(
             handle: Long,
-            prompt: String,
+            messages: Array<LlamaMessage>,
             temperature: Float,
             topP: Float,
-            minP: Float,
-            penaltyRepeat: Float,
-            penaltyFreq: Float,
-            penaltyPresent: Float,
+            repetitionPenalty: Float,
+            topK: Int,
+            seed: Int,
         ): String
 
         @JvmStatic
         private external fun freeNative(handle: Long)
     }
 
-    fun applyTemplate(messages: Array<LlamaMessage>) = applyTemplateNative(handle = nativeHandle, messages = messages)
-
     fun generate(
-        prompt: String,
+        messages: Array<LlamaMessage>,
         temperature: Float = DEFAULT_TEMPERATURE,
         topP: Float = DEFAULT_TOP_P,
-        minP: Float = DEFAULT_MIN_P,
-        penaltyRepeat: Float = DEFAULT_PENALTY_REPEAT,
-        penaltyFreq: Float = DEFAULT_PENALTY_FREQ,
-        penaltyPresent: Float = DEFAULT_PENALTY_PRESENT,
+        repetitionPenalty: Float = DEFAULT_REPETITION_PENALTY,
+        topK: Int = DEFAULT_TOP_K,
+        seed: Int = 0,
     ) = generateNative(
         handle = nativeHandle,
-        prompt = prompt,
+        messages = messages,
         temperature = temperature,
         topP = topP,
-        minP = minP,
-        penaltyRepeat = penaltyRepeat,
-        penaltyFreq = penaltyFreq,
-        penaltyPresent = penaltyPresent
+        repetitionPenalty = repetitionPenalty,
+        topK = topK,
+        seed = seed
     )
-
-    fun calculateTokens(prompt: String) = calculateTokensNative(handle = nativeHandle, prompt = prompt)
 
     override fun close() = cleanable.clean()
 }

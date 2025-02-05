@@ -1,14 +1,14 @@
 package com.github.numq.ttt
 
+import com.github.numq.ttt.llama.LlamaMessage
 import com.github.numq.ttt.llama.LlamaTextToText
 import com.github.numq.ttt.llama.NativeLlamaTextToText
 
 interface TextToText : AutoCloseable {
-    fun generate(prompt: String): Result<String>
-
     interface Llama : TextToText {
         companion object {
             private const val DEFAULT_CONTEXT_SIZE = 2048
+            private const val DEFAULT_BATCH_SIZE = 4096
 
             private var isLoaded = false
 
@@ -36,7 +36,7 @@ interface TextToText : AutoCloseable {
                 modelPath: String,
                 basePrompt: String,
                 contextSize: Int = DEFAULT_CONTEXT_SIZE,
-                batchSize: Int = DEFAULT_CONTEXT_SIZE,
+                batchSize: Int = DEFAULT_BATCH_SIZE,
             ): Result<Llama> = runCatching {
                 check(isLoaded) { "Native binaries were not loaded" }
 
@@ -50,6 +50,10 @@ interface TextToText : AutoCloseable {
                 )
             }
         }
+
+        val messages: List<LlamaMessage>
+
+        fun generate(prompt: String): Result<Pair<LlamaMessage, LlamaMessage>>
 
         fun reset(): Result<Unit>
     }

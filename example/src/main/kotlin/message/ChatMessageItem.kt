@@ -15,23 +15,23 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 @Composable
-fun MessageItem(message: Message) {
+fun ChatMessageItem(chatMessage: ChatMessage) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(4.dp),
-        horizontalAlignment = if (message is Message.Request) Alignment.End else Alignment.Start,
+        horizontalAlignment = if (chatMessage is ChatMessage.User) Alignment.End else Alignment.Start,
         verticalArrangement = Arrangement.spacedBy(space = 4.dp, alignment = Alignment.CenterVertically)
     ) {
         Card {
             Column(
                 modifier = Modifier.padding(4.dp),
-                horizontalAlignment = if (message is Message.Request) Alignment.End else Alignment.Start,
+                horizontalAlignment = if (chatMessage is ChatMessage.Assistant) Alignment.End else Alignment.Start,
                 verticalArrangement = Arrangement.spacedBy(space = 8.dp, alignment = Alignment.CenterVertically)
             ) {
-                Text(if (message is Message.Request) "User" else "Llama")
+                Text(if (chatMessage is ChatMessage.User) "User" else "Llama")
                 Divider()
-                Text(message.text)
+                Text(chatMessage.message.content)
             }
         }
-        Text(SimpleDateFormat.getInstance().format(Date(message.timestamp.inWholeMilliseconds)))
+        Text(SimpleDateFormat.getInstance().format(Date(chatMessage.timestamp.inWholeMilliseconds)))
     }
 }

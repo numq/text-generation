@@ -4,26 +4,24 @@ import com.github.numq.ttt.TextToText
 
 internal class LlamaTextToText(
     private val nativeLlamaTextToText: NativeLlamaTextToText,
-    private val basePrompt: String,
+    basePrompt: String,
 ) : TextToText.Llama {
-    private val messages = mutableListOf<LlamaMessage>()
+    private val systemMessage = LlamaMessage(role = "system", content = basePrompt.trim())
+
+    override val messages = mutableListOf(systemMessage)
 
     override fun generate(prompt: String) = runCatching {
-        val fullPrompt = basePrompt + "\n" + prompt.trim()
-
-        val userMessage = LlamaMessage(role = "User", content = fullPrompt)
+        val userMessage = LlamaMessage(role = "user", content = prompt.trim())
 
         messages.add(userMessage)
 
-        val template = nativeLlamaTextToText.applyTemplate(messages = messages.toTypedArray())
+        val response = nativeLlamaTextToText.generate(messages = messages.toTypedArray()).trim()
 
-        val response = nativeLlamaTextToText.generate(prompt = template).trim()
-
-        val assistantMessage = LlamaMessage(role = "Assistant", content = response)
+        val assistantMessage = LlamaMessage(role = "assistant", content = response)
 
         messages.add(assistantMessage)
 
-        return@runCatching response
+        return@runCatching userMessage to assistantMessage
     }
 
     override fun reset() = runCatching { messages.clear() }
