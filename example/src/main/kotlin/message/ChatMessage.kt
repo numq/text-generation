@@ -1,6 +1,6 @@
 package message
 
-import com.github.numq.ttt.llama.LlamaMessage
+import com.github.numq.textgeneration.llama.LlamaMessage
 import kotlin.time.Duration
 
 sealed interface ChatMessage {

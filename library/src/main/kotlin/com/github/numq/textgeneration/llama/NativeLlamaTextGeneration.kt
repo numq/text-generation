@@ -1,16 +1,15 @@
-package com.github.numq.ttt.llama
+package com.github.numq.textgeneration.llama
 
 import java.lang.ref.Cleaner
 
-internal class NativeLlamaTextToText(
-    modelPath: String,
-    contextSize: Int,
-    batchSize: Int,
-) : AutoCloseable {
-    private val nativeHandle =
-        initNative(modelPath = modelPath, contextSize = contextSize, batchSize = batchSize).also { handle ->
-            require(handle != -1L) { "Unable to initialize native library" }
-        }
+internal class NativeLlamaTextGeneration(modelPath: String, contextSize: Int, batchSize: Int) : AutoCloseable {
+    private val nativeHandle = initNative(
+        modelPath = modelPath,
+        contextSize = contextSize,
+        batchSize = batchSize
+    ).also { handle ->
+        require(handle != -1L) { "Unable to initialize native library" }
+    }
 
     private val cleanable = cleaner.register(this) { freeNative(nativeHandle) }
 
@@ -28,7 +27,7 @@ internal class NativeLlamaTextToText(
         @JvmStatic
         private external fun generateNative(
             handle: Long,
-            messages: Array<LlamaMessage>,
+            messages: Array<NativeLlamaMessage>,
             temperature: Float,
             topP: Float,
             repetitionPenalty: Float,
@@ -41,7 +40,7 @@ internal class NativeLlamaTextToText(
     }
 
     fun generate(
-        messages: Array<LlamaMessage>,
+        messages: Array<NativeLlamaMessage>,
         temperature: Float = DEFAULT_TEMPERATURE,
         topP: Float = DEFAULT_TOP_P,
         repetitionPenalty: Float = DEFAULT_REPETITION_PENALTY,

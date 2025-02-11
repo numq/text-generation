@@ -15,10 +15,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.singleWindowApplication
-import com.github.numq.ttt.TextToText
+import com.github.numq.textgeneration.TextGeneration
 import interaction.InteractionScreen
 
-const val APP_NAME = "Text-To-Text"
+const val APP_NAME = "Text generation"
 
 fun main(args: Array<String>) {
     val modelPath = args.first()
@@ -27,31 +27,31 @@ fun main(args: Array<String>) {
 
     checkNotNull(pathToBinaries) { "Binaries not found" }
 
-    TextToText.Llama.load(
-        ggmlbase = "$pathToBinaries\\ggml-base.dll",
-        ggmlrpc = "$pathToBinaries\\ggml-rpc.dll",
-        ggmlcpu = "$pathToBinaries\\ggml-cpu.dll",
-        ggmlcuda = "$pathToBinaries\\ggml-cuda.dll",
+    TextGeneration.Llama.loadCUDA(
+        ggmlBase = "$pathToBinaries\\ggml-base.dll",
+        ggmlCpu = "$pathToBinaries\\ggml-cpu.dll",
+        ggmlCuda = "$pathToBinaries\\ggml-cuda.dll",
+        ggmlRpc = "$pathToBinaries\\ggml-rpc.dll",
         ggml = "$pathToBinaries\\ggml.dll",
         llama = "$pathToBinaries\\llama.dll",
-        libttt = "$pathToBinaries\\libttt.dll"
+        textGeneration = "$pathToBinaries\\text-generation.dll"
     ).getOrThrow()
 
     singleWindowApplication(state = WindowState(width = 512.dp, height = 512.dp), title = APP_NAME) {
-        val textToText = remember { TextToText.Llama.create(modelPath = modelPath).getOrThrow() }
+        val textGeneration = remember { TextGeneration.Llama.create(modelPath = modelPath).getOrThrow() }
 
         val (throwable, setThrowable) = remember { mutableStateOf<Throwable?>(null) }
 
         DisposableEffect(Unit) {
             onDispose {
-                textToText.close()
+                textGeneration.close()
             }
         }
 
         MaterialTheme {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
                 InteractionScreen(
-                    textToText = textToText,
+                    textGeneration = textGeneration,
                     handleThrowable = setThrowable
                 )
                 throwable?.let { t ->

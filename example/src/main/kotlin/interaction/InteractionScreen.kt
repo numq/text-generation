@@ -19,7 +19,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.unit.dp
-import com.github.numq.ttt.TextToText
+import com.github.numq.textgeneration.TextGeneration
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
@@ -29,7 +29,7 @@ import message.ChatMessageItem
 import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
-fun InteractionScreen(textToText: TextToText.Llama, handleThrowable: (Throwable) -> Unit) {
+fun InteractionScreen(textGeneration: TextGeneration.Llama, handleThrowable: (Throwable) -> Unit) {
     val generationScope = rememberCoroutineScope { Dispatchers.Default }
 
     var generationJob by remember { mutableStateOf<Job?>(null) }
@@ -44,35 +44,33 @@ fun InteractionScreen(textToText: TextToText.Llama, handleThrowable: (Throwable)
 
     var requestCancellation by remember { mutableStateOf(false) }
 
-    val sendChatMessage: (String) -> Unit = remember {
-        { prompt ->
-            generationJob = generationScope.launch {
-                isGenerating = true
+    fun sendChatMessage(prompt: String) {
+        generationJob = generationScope.launch {
+            isGenerating = true
 
-                textToText.generate(prompt = prompt).onSuccess { (userMessage, assistantMessage) ->
-                    chatMessages.add(
-                        ChatMessage.User(
-                            id = System.nanoTime(),
-                            message = userMessage,
-                            timestamp = System.currentTimeMillis().milliseconds
-                        )
+            textGeneration.generate(prompt = prompt).onSuccess { (userMessage, assistantMessage) ->
+                chatMessages.add(
+                    ChatMessage.User(
+                        id = System.nanoTime(),
+                        message = userMessage,
+                        timestamp = System.currentTimeMillis().milliseconds
                     )
+                )
 
-                    setPrompt("")
+                setPrompt("")
 
-                    chatMessages.add(
-                        ChatMessage.Assistant(
-                            id = System.nanoTime(),
-                            message = assistantMessage,
-                            timestamp = System.currentTimeMillis().milliseconds
-                        )
+                chatMessages.add(
+                    ChatMessage.Assistant(
+                        id = System.nanoTime(),
+                        message = assistantMessage,
+                        timestamp = System.currentTimeMillis().milliseconds
                     )
+                )
+            }.onFailure(handleThrowable)
 
-                    generationJob = null
-                }.onFailure(handleThrowable)
+            generationJob = null
 
-                isGenerating = false
-            }
+            isGenerating = false
         }
     }
 
@@ -129,17 +127,19 @@ fun InteractionScreen(textToText: TextToText.Llama, handleThrowable: (Throwable)
                     },
                     enabled = !isGenerating
                 )
-                when {
-                    isGenerating -> IconButton(onClick = {
-                        requestCancellation = true
-                    }) {
-                        Icon(Icons.Default.Cancel, null)
-                    }
+                Box(modifier = Modifier.padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
+                    when {
+                        isGenerating -> IconButton(onClick = {
+                            requestCancellation = true
+                        }) {
+                            Icon(Icons.Default.Cancel, null)
+                        }
 
-                    else -> IconButton(onClick = {
-                        sendChatMessage(prompt)
-                    }, enabled = prompt.isNotBlank()) {
-                        Icon(Icons.AutoMirrored.Filled.Send, null)
+                        else -> IconButton(onClick = {
+                            sendChatMessage(prompt)
+                        }, enabled = prompt.isNotBlank()) {
+                            Icon(Icons.AutoMirrored.Filled.Send, null)
+                        }
                     }
                 }
             }

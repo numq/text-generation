@@ -1,4 +1,4 @@
-#include "Java_com_github_numq_ttt_llama_NativeLlamaTextToText.h"
+#include "Java_com_github_numq_textgeneration_llama_NativeLlamaTextGeneration.h"
 
 static jclass exceptionClass;
 static std::shared_mutex mutex;
@@ -108,8 +108,9 @@ JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *vm, void *reserved) {
 }
 
 JNIEXPORT jlong JNICALL
-Java_com_github_numq_ttt_llama_NativeLlamaTextToText_initNative(JNIEnv *env, jclass thisClass, jstring modelPath,
-                                                                jint contextSize, jint batchSize) {
+Java_com_github_numq_textgeneration_llama_NativeLlamaTextGeneration_initNative(JNIEnv *env, jclass thisClass,
+                                                                               jstring modelPath,
+                                                                               jint contextSize, jint batchSize) {
     std::unique_lock<std::shared_mutex> lock(mutex);
 
     try {
@@ -158,10 +159,13 @@ Java_com_github_numq_ttt_llama_NativeLlamaTextToText_initNative(JNIEnv *env, jcl
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_github_numq_ttt_llama_NativeLlamaTextToText_generateNative(JNIEnv *env, jclass thisClass, jlong handle,
-                                                                    jobjectArray messages, jfloat temperature,
-                                                                    jfloat topP, jfloat repetitionPenalty, jint topK,
-                                                                    jint seed) {
+Java_com_github_numq_textgeneration_llama_NativeLlamaTextGeneration_generateNative(JNIEnv *env, jclass thisClass,
+                                                                                   jlong handle,
+                                                                                   jobjectArray messages,
+                                                                                   jfloat temperature,
+                                                                                   jfloat topP,
+                                                                                   jfloat repetitionPenalty, jint topK,
+                                                                                   jint seed) {
     std::shared_lock<std::shared_mutex> lock(mutex);
 
     try {
@@ -220,6 +224,16 @@ Java_com_github_numq_ttt_llama_NativeLlamaTextToText_generateNative(JNIEnv *env,
         try {
             llama_sampler_chain_add(
                     sampler,
+                    llama_sampler_init_top_k(topK)
+            );
+
+            llama_sampler_chain_add(
+                    sampler,
+                    llama_sampler_init_top_p(topP, true)
+            );
+
+            llama_sampler_chain_add(
+                    sampler,
                     seed > 0 ? llama_sampler_init_dist(seed) : llama_sampler_init_greedy()
             );
 
@@ -230,22 +244,12 @@ Java_com_github_numq_ttt_llama_NativeLlamaTextToText_generateNative(JNIEnv *env,
 
             llama_sampler_chain_add(
                     sampler,
-                    llama_sampler_init_top_p(topP, 1)
-            );
-
-            llama_sampler_chain_add(
-                    sampler,
                     llama_sampler_init_penalties(
                             0,
                             repetitionPenalty,
                             0,
                             0
                     )
-            );
-
-            llama_sampler_chain_add(
-                    sampler,
-                    llama_sampler_init_top_k(topK)
             );
 
             auto result = generate(vocab, context, sampler, formattedPrompt);
@@ -267,7 +271,8 @@ Java_com_github_numq_ttt_llama_NativeLlamaTextToText_generateNative(JNIEnv *env,
 }
 
 JNIEXPORT void JNICALL
-Java_com_github_numq_ttt_llama_NativeLlamaTextToText_freeNative(JNIEnv *env, jclass thisClass, jlong handle) {
+Java_com_github_numq_textgeneration_llama_NativeLlamaTextGeneration_freeNative(JNIEnv *env, jclass thisClass,
+                                                                               jlong handle) {
     std::shared_lock<std::shared_mutex> lock(mutex);
 
     try {
