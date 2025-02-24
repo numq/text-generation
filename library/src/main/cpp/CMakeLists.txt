@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 23)
 
 set(CMAKE_SHARED_LIBRARY_PREFIX "")
 
+option(BUILD_WITH_CUDA "Build with CUDA support" OFF)
+
 add_library(text-generation SHARED src/Java_com_github_numq_textgeneration_llama_NativeLlamaTextGeneration.cpp)
 
 find_package(JNI)
@@ -19,6 +21,12 @@ endif ()
 
 target_include_directories(text-generation PRIVATE include include/ggml include/llama)
 
-target_link_directories(text-generation PRIVATE bin)
+if (BUILD_WITH_CUDA)
+    target_link_directories(text-generation PRIVATE bin/cuda)
 
-target_link_libraries(text-generation PRIVATE ggml-base ggml-cpu ggml-cuda ggml-rpc ggml llama)
+    target_link_libraries(text-generation PRIVATE ggml-base ggml-cpu ggml-cuda ggml-rpc ggml llama)
+else ()
+    target_link_directories(text-generation PRIVATE bin/cpu)
+
+    target_link_libraries(text-generation PRIVATE ggml-base ggml-cpu ggml-rpc ggml llama)
+endif ()
