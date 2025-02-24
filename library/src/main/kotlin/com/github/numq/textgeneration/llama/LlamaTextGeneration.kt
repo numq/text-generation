@@ -6,11 +6,11 @@ import kotlinx.coroutines.sync.withLock
 
 internal class LlamaTextGeneration(
     private val nativeLlamaTextGeneration: NativeLlamaTextGeneration,
-    basePrompt: String,
+    systemPrompt: String,
 ) : TextGeneration.Llama {
     private val mutex = Mutex()
 
-    private val systemMessage = LlamaMessage.System(basePrompt.trim())
+    private val systemMessage = LlamaMessage.System(systemPrompt.trim())
 
     private val messages = mutableListOf<LlamaMessage>(systemMessage)
 

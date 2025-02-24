@@ -22,6 +22,19 @@ interface TextGeneration : AutoCloseable {
             @Volatile
             private var loadState: LoadState = LoadState.Unloaded
 
+            /**
+             * Loads the CPU-based native libraries required for Whisper speech recognition.
+             *
+             * This method must be called before creating a Whisper instance.
+             *
+             * @param ggmlBase The path to the `ggml-base` binary.
+             * @param ggmlCpu The path to the `ggml-cpu` binary.
+             * @param ggmlRpc The path to the `ggml-rpc` binary.
+             * @param ggml The path to the `ggml` binary.
+             * @param llama The path to the `llama` binary.
+             * @param textGeneration The path to the `text-generation` binary.
+             * @return A [Result] indicating the success or failure of the operation.
+             */
             fun loadCPU(
                 ggmlBase: String,
                 ggmlCpu: String,
@@ -42,6 +55,20 @@ interface TextGeneration : AutoCloseable {
                 loadState = LoadState.CPU
             }
 
+            /**
+             * Loads the CUDA-based native libraries required for Whisper speech recognition.
+             *
+             * This method must be called before creating a Whisper instance.
+             *
+             * @param ggmlBase The path to the `ggml-base` binary.
+             * @param ggmlCpu The path to the `ggml-cpu` binary.
+             * @param ggmlCuda The path to the `ggml-cuda` binary.
+             * @param ggmlRpc The path to the `ggml-rpc` binary.
+             * @param ggml The path to the `ggml` binary.
+             * @param llama The path to the `llama` binary.
+             * @param textGeneration The path to the `text-generation` binary.
+             * @return A [Result] indicating the success or failure of the operation.
+             */
             fun loadCUDA(
                 ggmlBase: String,
                 ggmlCpu: String,
@@ -64,9 +91,21 @@ interface TextGeneration : AutoCloseable {
                 loadState = LoadState.CUDA
             }
 
+            /**
+             * Creates a new instance of [TextGeneration] using the Whisper implementation.
+             *
+             * This method initializes the Llama text generation with the specified model.
+             *
+             * @param modelPath the path to the Llama model file.
+             * @param systemPrompt the optional system prompt that will be used as the system message.
+             * @param contextSize the size of the context window.
+             * @param batchSize the batch size.
+             * @return a [Result] containing the created instance if successful.
+             * @throws IllegalStateException if the native libraries are not loaded or if there is an issue with the underlying native libraries.
+             */
             fun create(
                 modelPath: String,
-                basePrompt: String = "",
+                systemPrompt: String = "",
                 contextSize: Int = DEFAULT_CONTEXT_SIZE,
                 batchSize: Int = DEFAULT_BATCH_SIZE,
             ): Result<Llama> = runCatching {
@@ -78,15 +117,31 @@ interface TextGeneration : AutoCloseable {
                         contextSize = contextSize,
                         batchSize = batchSize
                     ),
-                    basePrompt = basePrompt
+                    systemPrompt = systemPrompt
                 )
             }
         }
 
+        /**
+         * Retrieves the conversation history.
+         *
+         * @return A [Result] containing a list of [LlamaMessage] objects representing the conversation history.
+         */
         suspend fun history(): Result<List<LlamaMessage>>
 
+        /**
+         * Generates a response based on the provided prompt.
+         *
+         * @param prompt The input text prompt to generate a response from.
+         * @return A [Result] containing a [LlamaExchange] object with the generated response.
+         */
         suspend fun generate(prompt: String): Result<LlamaExchange>
 
+        /**
+         * Resets the conversation history and clears the current context.
+         *
+         * @return A [Result] indicating the success or failure of the operation.
+         */
         suspend fun reset(): Result<Unit>
 
         override fun close() {
